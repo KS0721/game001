@@ -22,20 +22,13 @@
 
 ![image](https://github.com/user-attachments/assets/38e5ddef-fbda-4bff-beb0-7625174539a8)
 
-5. 추가적으로 Freesound사이트에서 찾은 사이트로 사운드를 입혔습니다.
 
-![image](https://github.com/user-attachments/assets/3b85e5e3-ccfe-4d2f-993e-a79867c46cf4)
-![image](https://github.com/user-attachments/assets/5b88b669-6194-41b1-8bff-7fe875f3e809)
-![image](https://github.com/user-attachments/assets/ff679a69-908d-4028-8e15-874ea6578ceb)
-
-
-6. 각각 코드가 무슨 기능을 하는지에 물어봤습니다.
+5. 각각 코드가 무슨 기능을 하는지에 물어봤습니다.
 
 ![image](https://github.com/user-attachments/assets/f2e63d33-e634-4b5a-a301-c7a0c50ab5ac)
-![image](https://github.com/user-attachments/assets/2d9a027f-5c86-41fd-8698-cee3c4ac9583)
 ![image](https://github.com/user-attachments/assets/551d1904-ad03-46bf-b565-f218f81529ec)
 
-7. 게임 실행 화면입니다.
+6. 게임 실행 화면입니다.
 
 ![image](https://github.com/user-attachments/assets/41e0616b-18ce-4bf9-b0e1-378a4d732301)
 ![image](https://github.com/user-attachments/assets/2bf7128f-24d6-49ee-a41d-d687f242a9b6)

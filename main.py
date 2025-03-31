@@ -66,7 +66,9 @@ for item_type in item_types:
         item_images[item_type] = pygame.transform.scale(original_image, (50, 50))
     except Exception as e:
         print(f"아이템 이미지 로드 실패 ({item_type}): {e}")
-        item_images[item_type] = None
+        # 기본 색상으로 대체
+        item_images[item_type] = pygame.Surface((50, 50))
+        item_images[item_type].fill((255, 0, 0))  # 빨간색으로 기본 처리
 
 # 보호막 상태
 shield_active = False
@@ -96,6 +98,22 @@ bullet_count = 1  # 기본 총알 개수 (1개)
 
 # 기타 상태
 freeze_timer = 0  # 시간 정지 타이머 초기화
+
+# 무적 상태 변수 추가
+invincible = False
+invincible_timer = 0
+
+# 하트 상태 추가
+hearts = 3  # 최대 3개
+
+# 총알 발사 속도 및 대미지 초기화
+bullet_fire_interval = 5  # 기본 5초에 1발
+bullet_damage = 100  # 기본 대미지
+last_bullet_time = 0  # 마지막 총알 발사 시간
+
+# 총알 충전 상태 변수 추가
+bullet_charge = 0  # 현재 충전 상태 (0~100)
+bullet_charge_rate = 100 / bullet_fire_interval  # 충전 속도 (초당 증가량)
 
 # 소행성 생성 함수
 def create_comet():
@@ -148,53 +166,80 @@ def shift_item_slots():
     while len(item_slots) < 3:  # 슬롯 개수 유지
         item_slots.append(None)
 
-# 새로운 아이템 효과 함수 (스킬 능력 구현 및 슬롯 이동)
+# 새로운 아이템 효과 함수 (하트 회복 및 기타 효과)
 def apply_item_effect(item_type):
-    global score, shield_active, comets, speed, score_increment, shrink_active, bullet_count, bullet_speed, bullets, freeze_timer, player_speed, invisibility_active, invisibility_timer
-    if item_type == "score_boost":
-        score += 50
-        show_message("점수가 증가했습니다!")
+    global score, shield_active, comets, speed, score_increment, shrink_active, bullet_count, bullet_speed, bullets, freeze_timer, player_speed, invisibility_active, invisibility_timer, player_size, hearts, bullet_fire_interval, bullet_damage
+    if item_type == "extra_life":
+        if hearts < 3:  # 최대 3개까지 하트 추가
+            hearts += 1
+            show_message("하트가 추가되었습니다!")
+        else:
+            show_message("하트가 이미 최대치입니다!")
+    elif item_type == "destroy_comets":
+        comets.clear()  # 화면의 모든 소행성 제거
+        show_message("소행성이 모두 제거되었습니다!")
+    elif item_type == "explosion":
+        if boss:  # 보스가 있을 경우
+            boss = None
+            show_message("보스가 제거되었습니다!")
+        else:
+            show_message("보스가 없습니다!")
+    elif item_type == "score_boost":
+        score += 50  # 점수 50 증가
+        show_message("점수가 50 증가했습니다!")
     elif item_type == "shield":
-        shield_active = True
+        shield_active = True  # 보호막 활성화
         show_message("보호막이 활성화되었습니다!")
     elif item_type == "destroy_comets":
-        comets.clear()
-        show_message("소행성이 제거되었습니다!")
+        comets.clear()  # 화면의 모든 소행성 제거
+        show_message("소행성이 모두 제거되었습니다!")
     elif item_type == "slow_down":
-        speed = max(speed - 2, 1)
+        speed = max(speed - 2, 1)  # 소행성 속도 감소 (최소 1)
         show_message("소행성 속도가 느려졌습니다!")
     elif item_type == "double_score":
-        score_increment *= 2
-        show_message("점수가 2배로 증가합니다!")
+        score_increment *= 2  # 점수 증가 속도 2배
+        show_message("점수 증가 속도가 2배로 증가했습니다!")
     elif item_type == "invisibility":
-        invisibility_active = True
+        invisibility_active = True  # 투명화 활성화
         invisibility_timer = 5  # 5초 동안 지속
         show_message("투명화가 활성화되었습니다!")
     elif item_type == "shrink":
         if not shrink_active:
-            activate_shrink()
-        show_message("우주선이 작아졌습니다!")
+            shrink_active = True
+            shrink_timer = 10  # 10초 동안 지속
+            player_size //= 2  # 플레이어 크기 절반으로 축소
+        show_message("우주선 크기가 작아졌습니다!")
     elif item_type == "double_bullet":
-        bullet_count = min(bullet_count + 1, 2)  # 최대 2발까지 증가
-        show_message("총알이 2배로 증가했습니다!")
+        bullet_count = min(bullet_count + 1, 3)  # 총알 개수 최대 3발까지 증가
+        show_message("총알 개수가 증가했습니다!")
     elif item_type == "fast_bullet":
-        bullet_speed += 5
-        show_message("총알 속도가 빨라졌습니다!")
+        if bullet_fire_interval > 0.5:  # 최소 0.5초까지 발사 속도 증가
+            bullet_fire_interval -= 1
+            show_message("총알 발사 속도가 증가했습니다!")
+        else:
+            show_message("총알 발사 속도가 이미 최대치입니다!")
     elif item_type == "strong_bullet":
-        bullet_damage += 1
-        show_message("총알 대미지가 증가했습니다!")
+        if bullet_damage < 250:  # 최대 대미지 250까지 증가
+            bullet_damage += 50
+            show_message("총알 대미지가 증가했습니다!")
+        else:
+            show_message("총알 대미지가 이미 최대치입니다!")
     elif item_type == "speed_boost":
-        player_speed += 2  # 우주선 이동 속도 증가
+        player_speed += 2  # 플레이어 이동 속도 증가
         show_message("이동 속도가 증가했습니다!")
     elif item_type == "freeze_comets":
-        freeze_timer = 5
+        freeze_timer = 5  # 소행성 정지 5초 동안 지속
         show_message("소행성이 멈췄습니다!")
     elif item_type == "extra_life":
-        show_message("생명이 추가되었습니다!")
+        if hearts < 3:  # 최대 3개까지 하트 추가
+            hearts += 1
+            show_message("하트가 추가되었습니다!")
+        else:
+            show_message("하트가 이미 최대치입니다!")
     elif item_type == "explosion":
-        comets.clear()
+        comets.clear()  # 화면의 모든 소행성 제거
         show_message("모든 소행성이 제거되었습니다!")
-        pygame.time.set_timer(pygame.USEREVENT + 1, 1000)
+        pygame.time.set_timer(pygame.USEREVENT + 1, 1000)  # 1초 후 소행성 재생성
 
     # 아이템 사용 후 슬롯 이동
     shift_item_slots()
@@ -242,12 +287,16 @@ def show_message(text, duration=1):
 
 # 총알 발사 함수 (총알 갯수 증가 반영)
 def fire_bullet():
-    global bullets
-    for i in range(bullet_count):  # 총알 갯수만큼 발사
-        offset = (i - bullet_count // 2) * 10  # 총알 간격 조정
-        bullet_x = player_pos[0] + player_size // 2 - 5 + offset
-        bullet_y = player_pos[1]
-        bullets.append({"pos": [bullet_x, bullet_y], "damage": bullet_damage})
+    global bullets, last_bullet_time, bullet_charge
+    current_time = pygame.time.get_ticks() / 1000  # 현재 시간 (초 단위)
+    if bullet_charge >= 100:  # 충전이 완료되었을 때만 발사
+        bullet_charge = 0  # 충전 상태 초기화
+        last_bullet_time = current_time
+        for i in range(bullet_count):  # 총알 갯수만큼 발사
+            offset = (i - bullet_count // 2) * 10  # 총알 간격 조정
+            bullet_x = player_pos[0] + player_size // 2 - 5 + offset
+            bullet_y = player_pos[1]
+            bullets.append({"pos": [bullet_x, bullet_y], "damage": bullet_damage})
 
 # 라운드별 패턴 설정 함수
 def apply_round_pattern(round_number):
@@ -318,12 +367,37 @@ def calculate_round(score):
     else:
         return 9
 
-# 난이도 증가 함수
+# 난이도 증가 함수 정의
+def increase_difficulty(round_number):
+    global speed, bullet_speed, enemies, comets
+    speed = 5 + round_number  # 소행성 속도 증가
     bullet_speed = 10 + round_number  # 총알 속도 증가
     for _ in range(round_number):  # 라운드에 따라 적 추가
         enemies.append(create_enemy())
     for _ in range(round_number):  # 라운드에 따라 소행성 추가
         comets.append(create_comet())
+
+# 하트 그리기 함수
+def draw_hearts():
+    for i in range(hearts):
+        heart_x = 10 + i * 30  # 하트 간격
+        heart_y = 50
+        pygame.draw.circle(screen, RED, (heart_x, heart_y), 10)  # 하트는 빨간색 원으로 표시
+
+# 총알 충전 상태 그리기 함수
+def draw_bullet_charge():
+    box_width, box_height = 20, 10  # 네모 박스 크기 (2x1 비율)
+    spacing = 5  # 박스 간 간격
+    start_x = WIDTH - 100  # 오른쪽 하단 시작 위치
+    start_y = HEIGHT - 50
+
+    # 총알 충전 상태에 따라 박스 색상 결정
+    for i in range(3):
+        if bullet_charge >= (i + 1) * 33.33:  # 충전 상태에 따라 박스 채우기
+            color = (0, 255, 0)  # 초록색 (충전 완료)
+        else:
+            color = (50, 50, 50)  # 회색 (충전 중)
+        pygame.draw.rect(screen, color, (start_x + i * (box_width + spacing), start_y, box_width, box_height))
 
 # 메인 루프
 while True:
@@ -354,7 +428,7 @@ while True:
         time_elapsed += delta_time
         score_timer += delta_time
 
-        # 투명화 상태 처리
+        # 투명화 상태 처리 (아이템 효과 반영)
         if invisibility_active:
             invisibility_timer -= delta_time
             if invisibility_timer <= 0:
@@ -369,7 +443,7 @@ while True:
         else:
             player_alpha = 255  # 기본 상태
 
-        # 축소 상태 처리
+        # 축소 상태 처리 (아이템 효과 반영)
         if shrink_active:
             shrink_timer -= delta_time
             if shrink_timer <= 1 and shrink_timer > 0:  # 지속시간 1초 전 경고 메시지
@@ -393,11 +467,21 @@ while True:
             score += score_increment
             score_timer = 0
 
-        # 라운드 계산 및 난이도 증가
+        # 라운드 계산 및 난이도 증가 (3초 무적 추가)
         new_round = calculate_round(score)
         if new_round > round_number:  # 라운드가 변경되었을 때만 난이도 증가
-
             round_number = new_round
+            # 화면 검게 만들고 "다음 라운드 진입" 메시지 표시
+            screen.fill(BLACK)
+            next_round_text = font.render("다음 라운드 진입", True, WHITE)
+            screen.blit(next_round_text, (WIDTH // 2 - next_round_text.get_width() // 2, HEIGHT // 2))
+            pygame.display.flip()  # 화면 업데이트
+            pygame.time.wait(1000)  # 1초 대기 후 다음 라운드 시작
+
+            # 3초 무적 상태 활성화
+            invincible = True
+            invincible_timer = 3  # 3초 동안 지속
+
             increase_difficulty(round_number)  # 난이도 증가
             show_message(f"라운드 {round_number} 시작!")  # 라운드 변경 메시지
 
@@ -453,16 +537,25 @@ while True:
 
             # 충돌 체크 (소행성과 플레이어만 체크)
             player_rect = {"pos": player_pos, "size": (player_size, player_size)}
-            if check_collision(player_rect, comet):  # player_pos를 딕셔너리로 변환
-                if invisibility_active:
-                    continue  # 투명화 상태에서는 충돌 무시
+            # 무적 상태 처리
+            if invincible:
+                invincible_timer -= delta_time
+                if invincible_timer <= 0:
+                    invincible = False  # 무적 상태 종료
+
+            # 소행성 충돌 체크 (무적 상태 반영)
+            if check_collision(player_rect, comet):
+                if invincible or invisibility_active:
+                    continue  # 무적 상태 또는 투명화 상태에서는 충돌 무시
                 if shield_active:  # 보호막이 활성화된 경우
                     shield_active = False  # 보호막 비활성화
-                    show_message("보호막이 깨졌습니다.")  # 보호막 깨짐 메시지
+                    show_message("보호막이 깨졌습니다!")
                     comets.remove(comet)  # 소행성 제거
                 else:
-                    # 게임 오버 처리
-                    running = False
+                    hearts -= 1  # 하트 소모
+                    comets.remove(comet)  # 소행성 제거
+                    if hearts <= 0:  # 하트가 모두 소모되면 게임 오버
+                        running = False
 
         # 소행성 그리기
         for comet in comets:
@@ -588,8 +681,8 @@ while True:
                 for comet in comets[:]:
                     bullet_rect = {"pos": bullet["pos"], "size": (10, 20)}  # 총알 크기 딕셔너리로 변환
                     if check_collision(bullet_rect, comet):  # 충돌 체크
-                        comet["hit_count"] = comet.get("hit_count", 0) + 1  # 맞은 횟수 증가
-                        if comet["hit_count"] >= 5:  # 5번 맞으면 제거
+                        comet["health"] = comet.get("health", 500) - bullet["damage"]  # 체력 감소
+                        if comet["health"] <= 0:  # 체력이 0 이하가 되면 제거
                             comets.remove(comet)
                         bullets.remove(bullet)  # 총알 제거
                         break
@@ -619,6 +712,13 @@ while True:
         # 점수 및 라운드 표시 (라운드 표시 제거, 스코어만 표시)
         score_text = font.render(f"Score: {score}", True, WHITE)
         screen.blit(score_text, (10, 10))
+        draw_hearts()  # 하트 그리기
+
+        # 총알 충전 상태 업데이트
+        bullet_charge = min(100, bullet_charge + bullet_charge_rate * delta_time)  # 충전 상태 증가 (최대 100)
+
+        # 총알 충전 상태 그리기
+        draw_bullet_charge()
 
         # 아이템 슬롯 표시 (아이템 이름 제거)
         for i, slot in enumerate(item_slots):
